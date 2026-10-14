@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tiny Arcade</title><style>
+* {box-sizing:border-box} html,body { margin:0;width:100%;height:100%;overflow:hidden;background:#07121f;font-family:Arial,sans-serif;color:white }
+canvas {display:block;width:100vw;height:100vh;object-fit:contain;background:#07121f}
+</style></head><body><canvas id="game" width="900" height="560" aria-label="Live arcade game"></canvas>
+<script>
+const canvas = document.getElementById('game'); const ctx = canvas.getContext('2d');
+let state = {x:450,y:280,coinX:650,coinY:200,score:0,active:false};
+let connected = false;
+const feed = new EventSource('/events');
+feed.onmessage = e => {state=JSON.parse(e.data);connected=true;};
+feed.onerror = () => {connected=false;};
+const params=new URLSearchParams(location.search);
+// Browser keyboard test only. For the arcade screen use plain / without ?play=1.
+if(params.get('play')==='1' && params.has('key')) {
+  const keys = new Set(); let last = -1;
+  const mappings = {'arrowup':1,'w':1,'arrowdown':2,'s':2,'arrowleft':4,'a':4,'arrowright':8,'d':8};
+  function updateKey(e, down) { const k=e.key.toLowerCase();if(!mappings[k])return;
+    e.preventDefault(); if(down)keys.add(k);else keys.delete(k); transmit(); }
+  addEventListener('keydown', e=>updateKey(e,true));addEventListener('keyup',e=>updateKey(e,false));
+  addEventListener('blur',()=>{keys.clear();transmit();});
+  function transmit(){ let m=0;for(const k of keys)m |= mappings[k];if(m===last)return;last=m;
+    fetch('/input?key='+encodeURIComponent(params.get('key')),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'move='+m}).catch(()=>{}); }
+  setInterval(()=>{last=-1;transmit()},350);
+}
+function draw(){
+  ctx.clearRect(0,0,900,560);
+  const bg=ctx.createLinearGradient(0,0,0,560);bg.addColorStop(0,'#142741');bg.addColorStop(1,'#081321');ctx.fillStyle=bg;ctx.fillRect(0,0,900,560);
+  ctx.fillStyle='#00e7da';ctx.font='bold 42px Arial';ctx.fillText('TINY ARCADE',28,55);
+  ctx.textAlign='right';ctx.fillStyle='#fff';ctx.font='bold 30px Arial';ctx.fillText('COINS: '+state.score,870,52);ctx.textAlign='left';
+  ctx.strokeStyle='#3f6682';ctx.lineWidth=4;ctx.strokeRect(12,75,876,472);
+  for(let x=55;x<890;x+=60){ctx.strokeStyle='rgba(135,200,245,.07)';ctx.beginPath();ctx.moveTo(x,77);ctx.lineTo(x,545);ctx.stroke();}
+  for(let y=110;y<545;y+=60){ctx.beginPath();ctx.moveTo(14,y);ctx.lineTo(886,y);ctx.stroke();}
+  const pulse=1+Math.sin(performance.now()/180)*.10;
+  ctx.beginPath();ctx.arc(state.coinX,state.coinY,17*pulse,0,Math.PI*2);ctx.fillStyle='#ffd746';ctx.shadowColor='#ffd746';ctx.shadowBlur=22;ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='#b77812';ctx.font='bold 19px Arial';ctx.textAlign='center';ctx.fillText('$',state.coinX,state.coinY+7);ctx.textAlign='left';
+  ctx.shadowColor='#41e8ff';ctx.shadowBlur=22;ctx.fillStyle='#40d4ff';ctx.fillRect(state.x-20,state.y-20,40,40);ctx.shadowBlur=0;
+  ctx.fillStyle='#0b2847';ctx.fillRect(state.x-10,state.y-8,6,6);ctx.fillRect(state.x+5,state.y-8,6,6);
+  ctx.font='18px Arial';ctx.fillStyle='#d9e8f4';ctx.fillText(connected?'LIVE • SHARED SCREEN':'CONNECTING TO GAME SERVER...',30,530);
+  ctx.textAlign='right';ctx.fillText(state.active?'PLAYER CONTROLLING':'SIT TO PLAY',870,530);ctx.textAlign='left';
+  requestAnimationFrame(draw);
+}requestAnimationFrame(draw);
+</script></body></html>

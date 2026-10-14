@@ -49,7 +49,7 @@ setInterval(() => {
   const now = Date.now();
   const dt = Math.min((now - prev) / 1000, 0.10);
   prev = now;
-  if (now - lastInput > 1000) { game.move = 0; game.active = false; }
+  if (now - lastInput > 3000) { game.move = 0; game.active = false; }
   let dx = 0, dy = 0;
   if (game.move & 1) dy -= 1; // up
   if (game.move & 2) dy += 1; // down
